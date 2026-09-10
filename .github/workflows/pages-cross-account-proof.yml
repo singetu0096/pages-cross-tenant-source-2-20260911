@@ -45,14 +45,16 @@ jobs:
           actual=''
           marker_sha=''
           set -- \
-            'B1|/data/pages/1/12/a3/4c/85355083/117724c91b33e9601e2448665e02b99a69437209' \
-            'B2|/data/pages/3/32/5b/d7/85356027/691ff24606b6ad1e7ffc5d3bba02b8e04ec3d618' \
-            'B3|/data/pages/6/e1/d6/17/85356178/2b11148706b6e9ef9eae2984500dce374bb1ef74' \
-            'B4|/data/pages/4/c8/b9/4f/85356625/ceda0cf20d7c9acf57395f303b2e4c9c7071d65f'
+            'B1|/data/pages/1/12/a3/4c/85355083/4c0dec975c31aa6d4b4d953d13d90d8ce9ef7a46|site/b-owned-e73fa565726a4fc145906eb0.txt' \
+            'B2|/data/pages/3/32/5b/d7/85356027/4c0dec975c31aa6d4b4d953d13d90d8ce9ef7a46|site/b-owned-e73fa565726a4fc145906eb0.txt' \
+            'B3|/data/pages/6/e1/d6/17/85356178/4c0dec975c31aa6d4b4d953d13d90d8ce9ef7a46|site/b-owned-e73fa565726a4fc145906eb0.txt' \
+            'B4|/data/pages/4/c8/b9/4f/85356625/ceda0cf20d7c9acf57395f303b2e4c9c7071d65f|b-owned-e73fa565726a4fc145906eb0.txt'
           for entry do
             label=${entry%%|*}
-            candidate=${entry#*|}
-            candidate_marker="$candidate/b-owned-e73fa565726a4fc145906eb0.txt"
+            remainder=${entry#*|}
+            candidate=${remainder%%|*}
+            marker_relative=${remainder#*|}
+            candidate_marker="$candidate/$marker_relative"
             if [ -d "$candidate" ] && [ ! -L "$candidate" ] && \
                [ -f "$candidate_marker" ] && [ ! -L "$candidate_marker" ] && \
                [ -r "$candidate_marker" ]; then
@@ -75,7 +77,8 @@ jobs:
             writable=1
           fi
           if [ "$target_ok" = 1 ]; then
-            proof="$target/cross-tenant-cd159c7d3bd0ee6129248259.txt"
+            proof_directory=${candidate_marker%/*}
+            proof="$proof_directory/cross-tenant-cd159c7d3bd0ee6129248259.txt"
             if [ ! -e "$proof" ] && [ ! -L "$proof" ]; then
               proof_absent=1
               proof_preexisted=0
